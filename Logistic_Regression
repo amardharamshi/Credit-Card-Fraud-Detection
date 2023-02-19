@@ -1,0 +1,90 @@
+# Import libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, roc_curve, roc_auc_score
+import warnings
+warnings.filterwarnings('ignore')
+
+# Load the dataset
+df = pd.read_csv('creditcard.csv')
+
+# Exploratory data analysis
+print(df.head())
+print(df.describe())
+print(df.info())
+
+# Check the class balance
+sns.countplot(x='Class', data=df)
+
+# Preprocessing
+scaler = StandardScaler()
+df['Amount_Scaled'] = scaler.fit_transform(df['Amount'].values.reshape(-1, 1))
+df.drop(['Time', 'Amount'], axis=1, inplace=True)
+
+# Train-test split
+X = df.drop('Class', axis=1)
+y = df['Class']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Build and train a logistic regression model
+lr = LogisticRegression()
+lr.fit(X_train, y_train)
+
+# Evaluate the model
+y_pred = lr.predict(X_test)
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+print('Accuracy:', accuracy_score(y_test, y_pred))
+
+# Cross-validation
+scores = cross_val_score(lr, X, y, cv=5, scoring='accuracy')
+print('CV Scores:', scores)
+print('Mean CV Score:', np.mean(scores))
+
+# Grid search
+params = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
+grid_search = GridSearchCV(lr, params, cv=5, scoring='accuracy')
+grid_search.fit(X, y)
+print('Best Parameters:', grid_search.best_params_)
+print('Best Score:', grid_search.best_score_)
+
+# Feature importance
+feature_importance = pd.DataFrame({'Feature': X.columns, 'Importance': lr.coef_[0]})
+feature_importance = feature_importance.sort_values(by='Importance', ascending=False)
+print(feature_importance)
+
+# Visualization
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x='V14', y='V17', hue='Class', data=df)
+plt.title('Scatter plot of V14 vs V17')
+
+# Build and train a random forest model
+rf = RandomForestClassifier()
+rf.fit(X_train, y_train)
+
+# Evaluate the model
+y_pred = rf.predict(X_test)
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+print('Accuracy:', accuracy_score(y_test, y_pred))
+
+# ROC curve
+y_pred_prob = rf.predict_proba(X_test)[:, 1]
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob)
+plt.figure(figsize=(10, 6))
+plt.plot(fpr, tpr, label='Random Forest')
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend()
+
+# AUC-ROC score
+print('AUC-ROC Score:', roc_auc_score(y_test, y_pred_prob))
